@@ -13,7 +13,7 @@ BURNED = 3
 colors = {
     EMPTY: "white",
     TREE: "green",
-    FIRE: "red",
+    FIRE: "blue",
     BURNED: "black"
 }
 
@@ -151,7 +151,7 @@ start_button.grid(row=0, column=1, padx=10)
 # Density Slider
 density_label = tk.Label(
     controls,
-    text="Density"
+    text="Density [%]"
 )
 
 density_label.grid(row=1, column=0)
@@ -170,7 +170,7 @@ density_slider.grid(row=1, column=1)
 # Tickrate Slider
 speed_label = tk.Label(
     controls,
-    text="Tick Rate (ms)"
+    text="Tick Rate [ms]"
 )
 
 speed_label.grid(row=2, column=0)

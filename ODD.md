@@ -18,8 +18,8 @@ Leer
 Baum
 Feuer
 
-Wahrscheinlichkeit für Baumwachstum pro Zeitschritt
-Wahrscheinlichkeit für Blitzschlag
+Wahrscheinlichkeit für Baumwachstum pro Zeitschritt p
+Wahrscheinlichkeit für Blitzschlag f
 
 Scales:
 Zeitschritte
@@ -74,7 +74,7 @@ Baumwachstum und Blitzschläge mit gewisser Wahrscheinlichkeit
 Zufälligkeit ist zentral für die Dynamik
 
 Collectives
-Cluster von Bäumen bilden zusammenhängende Strukturen, die als „Brennstoff“ für Großbrände dienen
+(Cluster von Bäumen bilden zusammenhängende Strukturen, die als „Brennstoff“ für Großbrände dienen)
 
 Observation
 Größe einzelner Brände
@@ -88,7 +88,7 @@ Gitter startet leer oder mit zufälliger Verteilung von Bäumen
 Parameter p (Baumwachstum) und f (Blitzschlag) definieren die Dynamik
 
 
-# 6. Eingabedaten
+# 6. Input Data
 
 Keine externen Daten notwendig
 
@@ -105,3 +105,7 @@ Wenn eine Zelle brennt: Alle benachbarten Baumzellen → brennend
 
 Abbrennen:
 Brennende Zellen → leer im nächsten Zeitschritt
+
+
+# TD
+Ränder (wie sehen diese aus? begrenzt?), Art der Nachbarschaft (Von Neumann etc...), Purpose (konkrete Forschungsfrage/Aussage - was wollen wir untersuchen), Gitter- und Zellengröße konkret festlegen, Modellerweiterung mit KI überlegen (Maßnahmen die Ausbreitung verhindern/verlangsamen), synchron/asynchron?

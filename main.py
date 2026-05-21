@@ -101,51 +101,17 @@ def setup():
                 initial_tree_cells += 1
                 initial_tree_3_cells += 1
 
-    # Feuer startet in der Mitte
-    start_x = GRID_SIZE // 2
-    start_y = GRID_SIZE // 2
+    # Feuer startet an einem zufaelligen Baum
+    tree_positions = []
 
-    if grid[start_y][start_x] == TREE_1:
-        grid[start_y][start_x] = FIRE_1
+    for y in range(GRID_SIZE):
+        for x in range(GRID_SIZE):
+            if is_tree(grid[y][x]):
+                tree_positions.append((x, y))
 
-    elif grid[start_y][start_x] == TREE_2:
-        grid[start_y][start_x] = FIRE_2
-
-    elif grid[start_y][start_x] == TREE_3:
-        grid[start_y][start_x] = FIRE_3
-
-    else:
-        for radius in range(1, GRID_SIZE):
-            found = False
-
-            for dy in range(-radius, radius + 1):
-                for dx in range(-radius, radius + 1):
-
-                    nx = start_x + dx
-                    ny = start_y + dy
-
-                    if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
-
-                        if grid[ny][nx] == TREE_1:
-                            grid[ny][nx] = FIRE_1
-                            found = True
-                            break
-
-                        elif grid[ny][nx] == TREE_2:
-                            grid[ny][nx] = FIRE_2
-                            found = True
-                            break
-
-                        elif grid[ny][nx] == TREE_3:
-                            grid[ny][nx] = FIRE_3
-                            found = True
-                            break
-
-                if found:
-                    break
-
-            if found:
-                break
+    if tree_positions:
+        start_x, start_y = random.choice(tree_positions)
+        grid[start_y][start_x] = get_fire_state(grid[start_y][start_x])
 
     draw_grid()
     update_stats()

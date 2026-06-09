@@ -53,7 +53,6 @@ def run_simulation(
 
     random_grid = np.random.random((grid_size, grid_size))
     initial_trees = random_grid < initial_density
-
     grid[initial_trees] = TREE
 
     # Datenlisten
@@ -90,28 +89,29 @@ def run_simulation(
         # -----------------------------
         # 1. Baumwachstum
         # -----------------------------
-        empty_cells = (grid == EMPTY)
-        growth_random = np.random.random((grid_size, grid_size))
-        new_trees = (growth_random < p_growth) & empty_cells
+        # Wachstum findet nur statt, wenn gerade kein Brand aktiv ist.
+        if not fire_active:
+            empty_cells = (grid == EMPTY)
+            growth_random = np.random.random((grid_size, grid_size))
+            new_trees = (growth_random < p_growth) & empty_cells
 
-        new_grid[new_trees] = TREE
+            new_grid[new_trees] = TREE
 
         # -----------------------------
         # 2. Blitzschlag
         # -----------------------------
-        # Nur wenn aktuell kein Brand aktiv ist,
-        # darf ein neuer Blitz einschlagen.
+        # Ein neuer Blitz darf nur einschlagen, wenn gerade kein Brand aktiv ist.
         if not fire_active:
 
             tree_positions = np.argwhere(new_grid == TREE)
             number_of_trees = len(tree_positions)
 
             if number_of_trees > 0:
-                # Wahrscheinlichkeit, dass in diesem Zeitschritt überhaupt ein Blitz auftritt.
+                # Wahrscheinlichkeit, dass in diesem Zeitschritt mindestens ein Blitz auftritt.
+                # Es wird aber maximal ein Baum getroffen.
                 probability_at_least_one_lightning = 1 - (1 - f_lightning) ** number_of_trees
 
                 if np.random.random() < probability_at_least_one_lightning:
-                    # Genau eine zufällige Baumzelle wird vom Blitz getroffen.
                     random_index = np.random.randint(number_of_trees)
                     x, y = tree_positions[random_index]
                     new_grid[x, y] = FIRE
@@ -264,7 +264,7 @@ def print_summary(results):
         print(f"{key}: {value}")
 
     print("\nBaumdichte:")
-    print(f"Start-Baumdichte: {tree_densities[0]:.3f}")
+    print(f"Start-Baumdichte nach erstem Schritt: {tree_densities[0]:.3f}")
     print(f"Mittlere Baumdichte: {np.mean(tree_densities):.3f}")
     print(f"Maximale Baumdichte: {np.max(tree_densities):.3f}")
 
@@ -285,10 +285,10 @@ def print_summary(results):
 # -----------------------------
 results = run_simulation(
     grid_size=100,
-    initial_density=0.6,
+    initial_density=0.3,
     p_growth=0.01,
     f_lightning=0.0001,
-    steps=200,
+    steps=2000,
     animate=True,
     animation_interval=1,
     tick_rate=20,

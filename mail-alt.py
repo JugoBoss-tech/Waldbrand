@@ -11,7 +11,7 @@ from collections import deque
 GRID_SIZE = 100          # Größe des Gitters
 P_GROWTH = 0.01          # Wahrscheinlichkeit für Baumwachstum
 F_LIGHTNING = 0.0001     # Wahrscheinlichkeit für Blitzschlag
-STEPS = 300             # Anzahl der Simulationsschritte
+STEPS = 300            # Anzahl der Simulationsschritte
 ANIMATION_INTERVAL = 1  # Aktualisierung der Anzeige
 
 

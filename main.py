@@ -1,610 +1,299 @@
-import tkinter as tk
-import random
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
-# Einstellungen
-GRID_SIZE = 100
-CELL_SIZE = 6
 
+# -----------------------------
+# Zellzustände
+# -----------------------------
 EMPTY = 0
+TREE = 1
+FIRE = 2
 
-TREE_1 = 1
-TREE_2 = 2
-TREE_3 = 3
 
-FIRE_1 = 4
-FIRE_2 = 5
-FIRE_3 = 6
+# -----------------------------
+# Hilfsfunktion: Nachbarn
+# -----------------------------
+def get_neighbors(x, y, size):
+    neighbors = []
 
-BURNED_1 = 7
-BURNED_2 = 8
-BURNED_3 = 9
+    if x > 0:
+        neighbors.append((x - 1, y))
+    if x < size - 1:
+        neighbors.append((x + 1, y))
+    if y > 0:
+        neighbors.append((x, y - 1))
+    if y < size - 1:
+        neighbors.append((x, y + 1))
 
-RIVER = 10
+    return neighbors
 
-colors = {
-    EMPTY: "white",
 
-    TREE_1: "green",
-    TREE_2: "darkgreen",
-    TREE_3: "olive",
+# -----------------------------
+# Simulation
+# -----------------------------
+def run_simulation(
+    grid_size=100,
+    initial_density=0.4,
+    p_growth=0.01,
+    f_lightning=0.0001,
+    steps=200,
+    animate=True,
+    animation_interval=1,
+    tick_rate=30,
+    seed=None
+):
+    if seed is not None:
+        np.random.seed(seed)
 
-    FIRE_1: "blue",
-    FIRE_2: "blue",
-    FIRE_3: "blue",
+    # -----------------------------
+    # Anfangswald erzeugen
+    # -----------------------------
+    grid = np.zeros((grid_size, grid_size), dtype=int)
 
-    BURNED_1: "black",
-    BURNED_2: "black",
-    BURNED_3: "black",
+    random_grid = np.random.random((grid_size, grid_size))
+    initial_trees = random_grid < initial_density
+    grid[initial_trees] = TREE
 
-    RIVER: "lightblue"
-}
+    # Datenlisten
+    tree_densities = []
+    active_fire_cells = []
 
-grid = []
+    fire_durations = []
+    fire_areas = []
 
-initial_tree_cells = 0
-initial_tree_1_cells = 0
-initial_tree_2_cells = 0
-initial_tree_3_cells = 0
+    # Aktuelles Brandereignis
+    fire_active = False
+    current_fire_duration = 0
+    current_burned_cells = set()
 
-# ---------------- SETUP ----------------
+    # Visualisierung vorbereiten
+    if animate:
+        cmap = ListedColormap(["black", "green", "red"])
 
-def setup():
-    global grid
-    global initial_tree_cells
-    global initial_tree_1_cells
-    global initial_tree_2_cells
-    global initial_tree_3_cells
+        plt.ion()
+        fig, ax = plt.subplots(figsize=(7, 7))
+        img = ax.imshow(grid, cmap=cmap, vmin=0, vmax=2)
 
-    density = density_slider.get()
+        ax.set_title("Waldbrandmodell")
+        ax.set_xticks([])
+        ax.set_yticks([])
 
-    grid = []
+    # -----------------------------
+    # Hauptsimulation
+    # -----------------------------
+    for step in range(steps):
 
-    initial_tree_cells = 0
-    initial_tree_1_cells = 0
-    initial_tree_2_cells = 0
-    initial_tree_3_cells = 0
+        new_grid = grid.copy()
 
-    for y in range(GRID_SIZE):
-        row = []
+        # -----------------------------
+        # 1. Baumwachstum
+        # -----------------------------
+        # Wachstum findet nur statt, wenn gerade kein Brand aktiv ist.
+        if not fire_active:
+            empty_cells = (grid == EMPTY)
+            growth_random = np.random.random((grid_size, grid_size))
+            new_trees = (growth_random < p_growth) & empty_cells
 
-        for x in range(GRID_SIZE):
+            new_grid[new_trees] = TREE
 
-            if random.random() * 100 < density:
+        # -----------------------------
+        # 2. Blitzschlag
+        # -----------------------------
+        # Ein neuer Blitz darf nur einschlagen, wenn gerade kein Brand aktiv ist.
+        if not fire_active:
 
-                tree_type = random.choice([TREE_1, TREE_2, TREE_3])
-                row.append(tree_type)
+            tree_positions = np.argwhere(new_grid == TREE)
+            number_of_trees = len(tree_positions)
 
+            if number_of_trees > 0:
+                # Wahrscheinlichkeit, dass in diesem Zeitschritt mindestens ein Blitz auftritt.
+                # Es wird aber maximal ein Baum getroffen.
+                probability_at_least_one_lightning = 1 - (1 - f_lightning) ** number_of_trees
+
+                if np.random.random() < probability_at_least_one_lightning:
+                    random_index = np.random.randint(number_of_trees)
+                    x, y = tree_positions[random_index]
+                    new_grid[x, y] = FIRE
+
+        # -----------------------------
+        # 3. Feuerausbreitung
+        # -----------------------------
+        current_fires = np.argwhere(grid == FIRE)
+
+        for x, y in current_fires:
+            for nx, ny in get_neighbors(x, y, grid_size):
+                if new_grid[nx, ny] == TREE:
+                    new_grid[nx, ny] = FIRE
+
+        # -----------------------------
+        # 4. Abbrennen alter Feuerzellen
+        # -----------------------------
+        new_grid[grid == FIRE] = EMPTY
+
+        # -----------------------------
+        # Brandereignis messen
+        # -----------------------------
+        fires = np.argwhere(new_grid == FIRE)
+        number_of_fire_cells = len(fires)
+
+        if number_of_fire_cells > 0:
+
+            # Neuer Brand beginnt
+            if not fire_active:
+                fire_active = True
+                current_fire_duration = 0
+                current_burned_cells = set()
+
+            # Brand läuft weiter
+            current_fire_duration += 1
+
+            # Betroffene Fläche speichern
+            for x, y in fires:
+                current_burned_cells.add((x, y))
+
+        else:
+
+            # Brand endet
+            if fire_active:
+                fire_durations.append(current_fire_duration)
+                fire_areas.append(len(current_burned_cells))
+
+                fire_active = False
+                current_fire_duration = 0
+                current_burned_cells = set()
+
+        # -----------------------------
+        # Baumdichte erfassen
+        # -----------------------------
+        density = np.sum(new_grid == TREE) / (grid_size * grid_size)
+        tree_densities.append(density)
+
+        active_fire_cells.append(number_of_fire_cells)
+
+        # Grid aktualisieren
+        grid = new_grid
+
+        # -----------------------------
+        # Animation
+        # -----------------------------
+        if animate and step % animation_interval == 0:
+            img.set_data(grid)
+            ax.set_title(f"Waldbrandmodell - Schritt {step}")
+
+            if tick_rate > 0:
+                plt.pause(1 / tick_rate)
             else:
-                row.append(EMPTY)
+                plt.pause(0.001)
 
-        grid.append(row)
+    # Falls am Simulationsende noch ein Brand aktiv ist
+    if fire_active:
+        fire_durations.append(current_fire_duration)
+        fire_areas.append(len(current_burned_cells))
 
-    create_river()
+    if animate:
+        plt.ioff()
 
-    initial_tree_cells = 0
-    initial_tree_1_cells = 0
-    initial_tree_2_cells = 0
-    initial_tree_3_cells = 0
+    results = {
+        "tree_densities": tree_densities,
+        "active_fire_cells": active_fire_cells,
+        "fire_durations": fire_durations,
+        "fire_areas": fire_areas,
+        "parameters": {
+            "grid_size": grid_size,
+            "initial_density": initial_density,
+            "p_growth": p_growth,
+            "f_lightning": f_lightning,
+            "steps": steps,
+            "tick_rate": tick_rate
+        }
+    }
 
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
+    return results
 
-            if grid[y][x] == TREE_1:
-                initial_tree_cells += 1
-                initial_tree_1_cells += 1
 
-            elif grid[y][x] == TREE_2:
-                initial_tree_cells += 1
-                initial_tree_2_cells += 1
+# -----------------------------
+# Analyseplots
+# -----------------------------
+def plot_results(results):
+    tree_densities = results["tree_densities"]
+    active_fire_cells = results["active_fire_cells"]
+    fire_durations = results["fire_durations"]
+    fire_areas = results["fire_areas"]
 
-            elif grid[y][x] == TREE_3:
-                initial_tree_cells += 1
-                initial_tree_3_cells += 1
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
 
-    # Feuer startet an einem zufaelligen Baum
-    tree_positions = []
+    # Baumdichte über Zeit
+    axes[0, 0].plot(tree_densities)
+    axes[0, 0].set_title("Baumdichte über Zeit")
+    axes[0, 0].set_xlabel("Zeitschritt")
+    axes[0, 0].set_ylabel("Baumdichte")
 
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-            if is_tree(grid[y][x]):
-                tree_positions.append((x, y))
+    # Aktive Feuerzellen über Zeit
+    axes[0, 1].plot(active_fire_cells)
+    axes[0, 1].set_title("Aktiv brennende Zellen über Zeit")
+    axes[0, 1].set_xlabel("Zeitschritt")
+    axes[0, 1].set_ylabel("Anzahl Feuerzellen")
 
-    if tree_positions:
-        start_x, start_y = random.choice(tree_positions)
-        grid[start_y][start_x] = get_fire_state(grid[start_y][start_x])
+    # Branddauer
+    axes[1, 0].hist(fire_durations, bins=30)
+    axes[1, 0].set_title("Verteilung der Branddauer")
+    axes[1, 0].set_xlabel("Branddauer in Zeitschritten")
+    axes[1, 0].set_ylabel("Häufigkeit")
 
-    draw_grid()
-    update_stats()
+    # Brandfläche
+    axes[1, 1].hist(fire_areas, bins=30)
+    axes[1, 1].set_title("Verteilung der Brandflächen")
+    axes[1, 1].set_xlabel("Brandfläche")
+    axes[1, 1].set_ylabel("Häufigkeit")
 
-# ---------------- FLUSS ----------------
+    plt.tight_layout()
+    plt.show()
 
-def create_river():
 
-    river_x = GRID_SIZE // 3
-    river_width = 3
+# -----------------------------
+# Kennwerte ausgeben
+# -----------------------------
+def print_summary(results):
+    fire_durations = results["fire_durations"]
+    fire_areas = results["fire_areas"]
+    tree_densities = results["tree_densities"]
 
-    for y in range(GRID_SIZE):
+    print("Parameter:")
+    for key, value in results["parameters"].items():
+        print(f"{key}: {value}")
 
-        river_x += random.choice([-1, 0, 1])
+    print("\nBaumdichte:")
+    print(f"Start-Baumdichte nach erstem Schritt: {tree_densities[0]:.3f}")
+    print(f"Mittlere Baumdichte: {np.mean(tree_densities):.3f}")
+    print(f"Maximale Baumdichte: {np.max(tree_densities):.3f}")
 
-        if river_x < 10:
-            river_x = 10
+    print("\nBrandereignisse:")
+    print(f"Anzahl der Brandereignisse: {len(fire_areas)}")
 
-        if river_x > GRID_SIZE - 10:
-            river_x = GRID_SIZE - 10
-
-        for w in range(-river_width // 2, river_width // 2 + 1):
-
-            x = river_x + w
-
-            if 0 <= x < GRID_SIZE:
-                grid[y][x] = RIVER
-
-# ---------------- ZEICHNEN ----------------
-
-def draw_grid():
-
-    canvas.delete("all")
-
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-
-            color = colors[grid[y][x]]
-
-            canvas.create_rectangle(
-                x * CELL_SIZE,
-                y * CELL_SIZE,
-                (x + 1) * CELL_SIZE,
-                (y + 1) * CELL_SIZE,
-                fill=color,
-                outline=""
-            )
-
-# ---------------- STATISTIK ----------------
-
-def update_stats():
-
-    total_cells = GRID_SIZE * GRID_SIZE
-
-    empty_cells = 0
-    river_cells = 0
-
-    tree_1_cells = 0
-    tree_2_cells = 0
-    tree_3_cells = 0
-
-    fire_1_cells = 0
-    fire_2_cells = 0
-    fire_3_cells = 0
-
-    burned_1_cells = 0
-    burned_2_cells = 0
-    burned_3_cells = 0
-
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-
-            if grid[y][x] == EMPTY:
-                empty_cells += 1
-
-            elif grid[y][x] == RIVER:
-                river_cells += 1
-
-            elif grid[y][x] == TREE_1:
-                tree_1_cells += 1
-
-            elif grid[y][x] == TREE_2:
-                tree_2_cells += 1
-
-            elif grid[y][x] == TREE_3:
-                tree_3_cells += 1
-
-            elif grid[y][x] == FIRE_1:
-                fire_1_cells += 1
-
-            elif grid[y][x] == FIRE_2:
-                fire_2_cells += 1
-
-            elif grid[y][x] == FIRE_3:
-                fire_3_cells += 1
-
-            elif grid[y][x] == BURNED_1:
-                burned_1_cells += 1
-
-            elif grid[y][x] == BURNED_2:
-                burned_2_cells += 1
-
-            elif grid[y][x] == BURNED_3:
-                burned_3_cells += 1
-
-    burned_total = burned_1_cells + burned_2_cells + burned_3_cells
-    not_burned_total = (
-        tree_1_cells + tree_2_cells + tree_3_cells +
-        fire_1_cells + fire_2_cells + fire_3_cells
-    )
-
-    if initial_tree_cells > 0:
-        burned_percent = burned_total / initial_tree_cells * 100
-        not_burned_percent = not_burned_total / initial_tree_cells * 100
+    if len(fire_areas) > 0:
+        print(f"Mittlere Brandfläche: {np.mean(fire_areas):.2f}")
+        print(f"Maximale Brandfläche: {np.max(fire_areas)}")
+        print(f"Mittlere Branddauer: {np.mean(fire_durations):.2f}")
+        print(f"Maximale Branddauer: {np.max(fire_durations)}")
     else:
-        burned_percent = 0
-        not_burned_percent = 0
+        print("Keine Brandereignisse gefunden.")
 
-    if initial_tree_1_cells > 0:
-        burned_tree_1_percent = burned_1_cells / initial_tree_1_cells * 100
-    else:
-        burned_tree_1_percent = 0
 
-    if initial_tree_2_cells > 0:
-        burned_tree_2_percent = burned_2_cells / initial_tree_2_cells * 100
-    else:
-        burned_tree_2_percent = 0
-
-    if initial_tree_3_cells > 0:
-        burned_tree_3_percent = burned_3_cells / initial_tree_3_cells * 100
-    else:
-        burned_tree_3_percent = 0
-
-    empty_percent = empty_cells / total_cells * 100
-    river_percent = river_cells / total_cells * 100
-
-    stats_label.config(
-        text=
-        f"Abgebrannte Bäume gesamt: {burned_percent:.2f}%\n"
-        f"Nicht abgebrannte Bäume gesamt: {not_burned_percent:.2f}%\n"
-        f"Baumart 1 abgebrannt: {burned_tree_1_percent:.2f}%\n"
-        f"Baumart 2 abgebrannt: {burned_tree_2_percent:.2f}%\n"
-        f"Baumart 3 abgebrannt: {burned_tree_3_percent:.2f}%\n"
-        f"Leer / kein Baum: {empty_percent:.2f}%\n"
-        f"Fluss: {river_percent:.2f}%"
-    )
-
-# ---------------- HILFSFUNKTIONEN ----------------
-
-def is_tree(cell):
-    return cell == TREE_1 or cell == TREE_2 or cell == TREE_3
-
-def is_fire(cell):
-    return cell == FIRE_1 or cell == FIRE_2 or cell == FIRE_3
-
-def get_fire_state(tree_type):
-
-    if tree_type == TREE_1:
-        return FIRE_1
-
-    elif tree_type == TREE_2:
-        return FIRE_2
-
-    elif tree_type == TREE_3:
-        return FIRE_3
-
-def get_burned_state(fire_type):
-
-    if fire_type == FIRE_1:
-        return BURNED_1
-
-    elif fire_type == FIRE_2:
-        return BURNED_2
-
-    elif fire_type == FIRE_3:
-        return BURNED_3
-
-def get_burn_probability(tree_type):
-
-    if tree_type == TREE_1:
-        return tree_1_slider.get()
-
-    elif tree_type == TREE_2:
-        return tree_2_slider.get()
-
-    elif tree_type == TREE_3:
-        return tree_3_slider.get()
-
-    return 0
-
-# ---------------- SIMULATION ----------------
-
-def step():
-
-    global grid
-
-    new_grid = [row[:] for row in grid]
-
-    # 8 Richtungen
-    directions = [
-        (-1, -1), (0, -1), (1, -1),
-        (-1,  0),          (1,  0),
-        (-1,  1), (0,  1), (1,  1)
-    ]
-
-    river_cross_probability = river_slider.get()
-
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-
-            if is_fire(grid[y][x]):
-
-                new_grid[y][x] = get_burned_state(grid[y][x])
-
-                for dx, dy in directions:
-
-                    nx = x + dx
-                    ny = y + dy
-
-                    if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
-
-                        if is_tree(grid[ny][nx]):
-
-                            burn_probability = get_burn_probability(grid[ny][nx])
-
-                            if random.random() * 100 < burn_probability:
-                                new_grid[ny][nx] = get_fire_state(grid[ny][nx])
-
-                        elif grid[ny][nx] == RIVER:
-
-                            rx = nx
-                            ry = ny
-
-                            while 0 <= rx < GRID_SIZE and 0 <= ry < GRID_SIZE and grid[ry][rx] == RIVER:
-                                rx += dx
-                                ry += dy
-
-                            if 0 <= rx < GRID_SIZE and 0 <= ry < GRID_SIZE:
-
-                                if is_tree(grid[ry][rx]):
-
-                                    burn_probability = get_burn_probability(grid[ry][rx])
-
-                                    total_probability = river_cross_probability * burn_probability / 100
-
-                                    if random.random() * 100 < total_probability:
-                                        new_grid[ry][rx] = get_fire_state(grid[ry][rx])
-
-    grid = new_grid
-
-    draw_grid()
-    update_stats()
-
-    # Tickrate aus Slider
-    tick_rate = speed_slider.get()
-
-    fire_exists = False
-
-    for row in grid:
-        for cell in row:
-            if is_fire(cell):
-                fire_exists = True
-
-    if fire_exists:
-        root.after(tick_rate, step)
-
-# ---------------- START ----------------
-
-def start():
-    step()
-
-# ---------------- GUI ----------------
-
-root = tk.Tk()
-root.title("Waldbrand Simulation")
-
-canvas = tk.Canvas(
-    root,
-    width=GRID_SIZE * CELL_SIZE,
-    height=GRID_SIZE * CELL_SIZE
+# -----------------------------
+# Simulation starten
+# -----------------------------
+results = run_simulation(
+    grid_size=100,
+    initial_density=0.3,
+    p_growth=0.01,
+    f_lightning=0.0001,
+    steps=2000,
+    animate=True,
+    animation_interval=1,
+    tick_rate=20,
+    seed=42
 )
 
-canvas.pack()
-
-# ---------------- SCROLLBAR FÜR REGLER ----------------
-
-controls_container = tk.Frame(root)
-controls_container.pack(fill="both", expand=True)
-
-controls_canvas = tk.Canvas(
-    controls_container,
-    height=320
-)
-
-controls_scrollbar = tk.Scrollbar(
-    controls_container,
-    orient="vertical",
-    command=controls_canvas.yview
-)
-
-controls = tk.Frame(controls_canvas)
-
-controls.bind(
-    "<Configure>",
-    lambda event: controls_canvas.configure(
-        scrollregion=controls_canvas.bbox("all")
-    )
-)
-
-controls_canvas.create_window(
-    (0, 0),
-    window=controls,
-    anchor="nw"
-)
-
-controls_canvas.configure(
-    yscrollcommand=controls_scrollbar.set
-)
-
-controls_canvas.pack(
-    side="left",
-    fill="both",
-    expand=True
-)
-
-controls_scrollbar.pack(
-    side="right",
-    fill="y"
-)
-
-def on_mousewheel(event):
-    controls_canvas.yview_scroll(
-        int(-1 * (event.delta / 120)),
-        "units"
-    )
-
-controls_canvas.bind_all("<MouseWheel>", on_mousewheel)
-
-# ---------------- BUTTONS ----------------
-
-setup_button = tk.Button(
-    controls,
-    text="Setup",
-    command=setup
-)
-
-setup_button.grid(row=0, column=0, padx=10)
-
-start_button = tk.Button(
-    controls,
-    text="Start",
-    command=start
-)
-
-start_button.grid(row=0, column=1, padx=10)
-
-# ---------------- DENSITY SLIDER ----------------
-
-density_label = tk.Label(
-    controls,
-    text="Density [%]"
-)
-
-density_label.grid(row=1, column=0)
-
-density_slider = tk.Scale(
-    controls,
-    from_=0,
-    to=100,
-    orient="horizontal"
-)
-
-density_slider.set(60)
-
-density_slider.grid(row=1, column=1)
-
-# ---------------- TICKRATE SLIDER ----------------
-
-speed_label = tk.Label(
-    controls,
-    text="Tick Rate [ms]"
-)
-
-speed_label.grid(row=2, column=0)
-
-speed_slider = tk.Scale(
-    controls,
-    from_=10,
-    to=500,
-    orient="horizontal"
-)
-
-speed_slider.set(80)
-
-speed_slider.grid(row=2, column=1)
-
-# ---------------- RIVER CROSSING SLIDER ----------------
-
-river_label = tk.Label(
-    controls,
-    text="River Crossing Probability [%]"
-)
-
-river_label.grid(row=3, column=0)
-
-river_slider = tk.Scale(
-    controls,
-    from_=0,
-    to=100,
-    orient="horizontal"
-)
-
-river_slider.set(5)
-
-river_slider.grid(row=3, column=1)
-
-# ---------------- TREE 1 SLIDER ----------------
-
-tree_1_label = tk.Label(
-    controls,
-    text="Baumart 1 Brennwahrscheinlichkeit [%]"
-)
-
-tree_1_label.grid(row=4, column=0)
-
-tree_1_slider = tk.Scale(
-    controls,
-    from_=0,
-    to=100,
-    orient="horizontal"
-)
-
-tree_1_slider.set(90)
-
-tree_1_slider.grid(row=4, column=1)
-
-# ---------------- TREE 2 SLIDER ----------------
-
-tree_2_label = tk.Label(
-    controls,
-    text="Baumart 2 Brennwahrscheinlichkeit [%]"
-)
-
-tree_2_label.grid(row=5, column=0)
-
-tree_2_slider = tk.Scale(
-    controls,
-    from_=0,
-    to=100,
-    orient="horizontal"
-)
-
-tree_2_slider.set(60)
-
-tree_2_slider.grid(row=5, column=1)
-
-# ---------------- TREE 3 SLIDER ----------------
-
-tree_3_label = tk.Label(
-    controls,
-    text="Baumart 3 Brennwahrscheinlichkeit [%]"
-)
-
-tree_3_label.grid(row=6, column=0)
-
-tree_3_slider = tk.Scale(
-    controls,
-    from_=0,
-    to=100,
-    orient="horizontal"
-)
-
-tree_3_slider.set(30)
-
-tree_3_slider.grid(row=6, column=1)
-
-# ---------------- STATISTIK LABEL ----------------
-
-stats_label = tk.Label(
-    controls,
-    text=
-    "Abgebrannte Bäume gesamt: 0.00%\n"
-    "Nicht abgebrannte Bäume gesamt: 0.00%\n"
-    "Baumart 1 abgebrannt: 0.00%\n"
-    "Baumart 2 abgebrannt: 0.00%\n"
-    "Baumart 3 abgebrannt: 0.00%\n"
-    "Leer / kein Baum: 0.00%\n"
-    "Fluss: 0.00%",
-    justify="left"
-)
-
-stats_label.grid(row=7, column=0, columnspan=2, pady=10)
-
-setup()
-
-root.mainloop()
+plot_results(results)
+print_summary(results)

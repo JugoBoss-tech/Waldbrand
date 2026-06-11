@@ -3,17 +3,17 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
 
-# -----------------------------
+
 # Zellzustände
-# -----------------------------
+
 EMPTY = 0
 TREE = 1
 FIRE = 2
 
 
-# -----------------------------
+
 # Hilfsfunktion: Nachbarn
-# -----------------------------
+
 def get_neighbors(x, y, size):
     neighbors = []
 
@@ -29,9 +29,9 @@ def get_neighbors(x, y, size):
     return neighbors
 
 
-# -----------------------------
+
 # Simulation
-# -----------------------------
+
 def run_simulation(
     grid_size=100,
     initial_density=0.4,
@@ -46,9 +46,9 @@ def run_simulation(
     if seed is not None:
         np.random.seed(seed)
 
-    # -----------------------------
+    
     # Anfangswald erzeugen
-    # -----------------------------
+    
     grid = np.zeros((grid_size, grid_size), dtype=int)
 
     random_grid = np.random.random((grid_size, grid_size))
@@ -79,16 +79,16 @@ def run_simulation(
         ax.set_xticks([])
         ax.set_yticks([])
 
-    # -----------------------------
+    
     # Hauptsimulation
-    # -----------------------------
+    
     for step in range(steps):
 
         new_grid = grid.copy()
 
-        # -----------------------------
+        
         # 1. Baumwachstum
-        # -----------------------------
+        
         # Wachstum findet nur statt, wenn gerade kein Brand aktiv ist.
         if not fire_active:
             empty_cells = (grid == EMPTY)
@@ -97,9 +97,9 @@ def run_simulation(
 
             new_grid[new_trees] = TREE
 
-        # -----------------------------
+        
         # 2. Blitzschlag
-        # -----------------------------
+        
         # Ein neuer Blitz darf nur einschlagen, wenn gerade kein Brand aktiv ist.
         if not fire_active:
 
@@ -116,9 +116,9 @@ def run_simulation(
                     x, y = tree_positions[random_index]
                     new_grid[x, y] = FIRE
 
-        # -----------------------------
+        
         # 3. Feuerausbreitung
-        # -----------------------------
+        
         current_fires = np.argwhere(grid == FIRE)
 
         for x, y in current_fires:
@@ -126,14 +126,14 @@ def run_simulation(
                 if new_grid[nx, ny] == TREE:
                     new_grid[nx, ny] = FIRE
 
-        # -----------------------------
+        
         # 4. Abbrennen alter Feuerzellen
-        # -----------------------------
+        
         new_grid[grid == FIRE] = EMPTY
 
-        # -----------------------------
+        
         # Brandereignis messen
-        # -----------------------------
+        
         fires = np.argwhere(new_grid == FIRE)
         number_of_fire_cells = len(fires)
 
@@ -163,9 +163,9 @@ def run_simulation(
                 current_fire_duration = 0
                 current_burned_cells = set()
 
-        # -----------------------------
+        
         # Baumdichte erfassen
-        # -----------------------------
+        
         density = np.sum(new_grid == TREE) / (grid_size * grid_size)
         tree_densities.append(density)
 
@@ -174,9 +174,9 @@ def run_simulation(
         # Grid aktualisieren
         grid = new_grid
 
-        # -----------------------------
+        
         # Animation
-        # -----------------------------
+        
         if animate and step % animation_interval == 0:
             img.set_data(grid)
             ax.set_title(f"Waldbrandmodell - Schritt {step}")
@@ -212,9 +212,9 @@ def run_simulation(
     return results
 
 
-# -----------------------------
+
 # Analyseplots
-# -----------------------------
+
 def plot_results(results):
     tree_densities = results["tree_densities"]
     active_fire_cells = results["active_fire_cells"]
@@ -251,9 +251,9 @@ def plot_results(results):
     plt.show()
 
 
-# -----------------------------
+
 # Kennwerte ausgeben
-# -----------------------------
+
 def print_summary(results):
     fire_durations = results["fire_durations"]
     fire_areas = results["fire_areas"]
@@ -280,9 +280,9 @@ def print_summary(results):
         print("Keine Brandereignisse gefunden.")
 
 
-# -----------------------------
+
 # Simulation starten
-# -----------------------------
+
 results = run_simulation(
     grid_size=100,
     initial_density=0.3,

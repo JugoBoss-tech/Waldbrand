@@ -8,7 +8,7 @@ Für die technische Umsetzung wurde vor allem numpy verwendet. Das Gitter wird a
 
 Die Nachbarschaft im Modell ist eine Von-Neumann-Nachbarschaft. Das bedeutet, dass eine Zelle nur ihre direkten Nachbarn oben, unten, links und rechts berücksichtigt. Diagonale Nachbarn zählen nicht dazu. Außerdem gibt es keine periodischen Randbedingungen. Eine Zelle am Rand hat also weniger Nachbarn als eine Zelle im Inneren des Gitters.
 
-# Code Beispiel 1:
+```python
 def get_neighbors(x, y, size):
     neighbors = []
 
@@ -22,13 +22,13 @@ def get_neighbors(x, y, size):
         neighbors.append((x, y + 1))
 
     return neighbors
+```
 
-
-Diese Funktion gibt für eine Zelle alle gültigen Nachbarn zurück. Die `if`-Abfragen verhindern, dass Zellen außerhalb des Gitters verwendet werden. Dadurch wird gleichzeitig festgelegt, dass das Feuer nicht über den Rand hinaus weiterlaufen kann. Diese Stelle ist wichtig, weil sie die räumliche Struktur des Modells definiert.
+Diese Funktion gibt für eine Zelle alle gültigen Nachbarn zurück. Die if-Abfragen verhindern, dass Zellen außerhalb des Gitters verwendet werden. Dadurch wird gleichzeitig festgelegt, dass das Feuer nicht über den Rand hinaus weiterlaufen kann. Diese Stelle ist wichtig, weil sie die räumliche Struktur des Modells definiert.
 
 Der Start eines Brandes wird über einen zufälligen Blitzschlag modelliert. Dazu werden zuerst alle Baumzellen gesucht. Aus der Anzahl der vorhandenen Bäume wird berechnet, wie wahrscheinlich es ist, dass in diesem Zeitschritt mindestens ein Blitz auftritt.
 
-# Code Beispiel 2:
+```python
 tree_positions = np.argwhere(new_grid == TREE)
 number_of_trees = len(tree_positions)
 
@@ -39,26 +39,23 @@ if number_of_trees > 0:
         random_index = np.random.randint(number_of_trees)
         x, y = tree_positions[random_index]
         new_grid[x, y] = FIRE
-
+```
 
 Der Ausdruck 1 - (1 - f_lightning) ** number_of_trees berechnet die Wahrscheinlichkeit, dass mindestens eine Baumzelle getroffen wird. Wenn dieses Ereignis eintritt, wird eine zufällige Baumzelle ausgewählt und in den Zustand FIRE gesetzt. Pro Zeitschritt kann dadurch maximal ein neuer Brand durch Blitzschlag entstehen.
 
 Die Ausbreitung des Feuers wird über die Nachbarschaftsregel umgesetzt. Dafür werden alle Zellen gesucht, die im aktuellen Gitter brennen. Anschließend werden ihre Nachbarn überprüft. Wenn dort ein Baum steht, wird diese Nachbarzelle im neuen Gitterzustand ebenfalls zu einer Feuerzelle.
 
-# Code Beispiel 3:
+```python
 current_fires = np.argwhere(grid == FIRE)
 
 for x, y in current_fires:
     for nx, ny in get_neighbors(x, y, grid_size):
         if new_grid[nx, ny] == TREE:
             new_grid[nx, ny] = FIRE
-
+```
 
 In unserem Modell reicht es also aus, wenn ein Baum direkt neben einer brennenden Zelle steht. Dann beginnt er im nächsten Zustand zu brennen. Windrichtung, Feuchtigkeit, Hangneigung oder unterschiedliche Baumarten werden hier nicht berücksichtigt. Die Brandgröße hängt dadurch vor allem davon ab, wie zusammenhängend die Bäume im Gitter verteilt sind.
 
 Nach der Ausbreitung werden alle Zellen, die im vorherigen Zeitschritt gebrannt haben, auf leer gesetzt. Damit brennt jede Feuerzelle genau einen Zeitschritt lang. Während der Simulation werden die Baumdichte, die Anzahl aktiver Feuerzellen, die Dauer einzelner Brände und die betroffene Brandfläche gespeichert. Aus diesen Daten werden nach der Simulation Zeitreihen und Histogramme erstellt.
 
 Wir haben das Modell bewusst einfach gehalten, weil uns vor allem die grundlegende Dynamik aus Wachstum, Zündung, Ausbreitung und Abbrennen interessiert hat. Das Modell soll daher keine realen Waldbrände vorhersagen, sondern zeigen, wie aus einfachen lokalen Regeln und zufälligen Ereignissen größere Brandmuster entstehen können.
-
-
-
